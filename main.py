@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout,
-    QPushButton, QLabel, QFileDialog, QMessageBox, QDialog
+    QPushButton, QLabel, QFileDialog, QDialog
 )
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
@@ -18,57 +18,56 @@ def gaussianblur_img_widget(img_rgb):
     SIGMA_X = 0
     img_blur = cv2.GaussianBlur(img_rgb, KSIZE, SIGMA_X)
     
-    height, width, channel = img_blur.shape
-    bytes_per_line = width * channel
+    altura, largura, channel = img_blur.shape
+    bytes_per_line = largura * channel
     qimg = QImage(
-        img_blur.data, width, height, bytes_per_line, QImage.Format_RGB888
+        img_blur.data, largura, altura, bytes_per_line, QImage.Format_RGB888
     )
     return QPixmap.fromImage(qimg)
 
-PROFUNDIDADE_IMG = -1
+
 def sharpening(img_rgb):
-    """
-    Aplica um filtro de nitidez (sharpen) usando convolução 2D.
-    'img_rgb' deve ser um array NumPy em espaço de cor RGB.
-    """
+    PROFUNDIDADE_IMG = -1
     kernel = np.array([
         [0, -1,  0],
         [-1, 5, -1],
         [0, -1,  0]
     ])
     img_sharpened = cv2.filter2D(img_rgb, PROFUNDIDADE_IMG, kernel)
+    
+    #src = img entrada
+    #ddepth = profundidade img saida
+    #quando depth recebe -1, a profundidade da imagem de saida eh igual a de entrada
+    #kernel = operação de convolução
+    #convolução = um deslizamento de um pequeno kernel sobre na imagem de entrada
+    #cada pixel eh submetido a uma soma ponderada com o kernel, isso resulta em efeitos visuais
+    #como sharpening, desfoque, detecção de bordas, etc
     return img_sharpened
 
 def sharpen_img_widget(img_rgb):
-    """
-    Aplica o sharpening (nitidez) em uma imagem (RGB) e
-    retorna um QPixmap para exibição em widgets PyQt.
-    """
+
     img_sharp = sharpening(img_rgb)
-    height, width, channel = img_sharp.shape
-    bytes_per_line = width * channel
+    altura, largura, channel = img_sharp.shape
+    bytes_per_line = largura * channel
     qimg = QImage(
-        img_sharp.data, width, height, bytes_per_line, QImage.Format_RGB888
+        img_sharp.data, largura, altura, bytes_per_line, QImage.Format_RGB888
     )
     return QPixmap.fromImage(qimg)
 
-def rotate_45_img_widget(img_rgb):
-    """
-    Rotaciona a imagem em 45 graus (no sentido anti-horário).
-    Retorna um QPixmap para exibição em widgets PyQt.
-    """
-    height, width, channel = img_rgb.shape
+def rotacionar_45_img(img_rgb):
 
-    center = (width / 2, height / 2)
+    altura, largura, channel = img_rgb.shape
+
+    center = (largura / 2, altura / 2)
 
     angle = 45 
-    scale = 1.0
-    rot_matrix = cv2.getRotationMatrix2D(center, angle, scale)
+    rot_matrix = cv2.getRotationMatrix2D(center, angle, 1)
     
-    rotated = cv2.warpAffine(img_rgb, rot_matrix, (width, height))
+    rotated = cv2.warpAffine(img_rgb, rot_matrix, (largura, altura))
 
     height_r, width_r, channel_r = rotated.shape
     bytes_per_line = width_r * channel_r
+    
     qimg = QImage(
         rotated.data, width_r, height_r, bytes_per_line, QImage.Format_RGB888
     )
@@ -82,35 +81,35 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("processamento de imagens")
         
         #caminho
-        self.image_path = None
+        self.image_path = None # pega caminho da imagem para usar nos outros botoes
 
-        #widget central
+        #widget central para alinhar os outros widgets
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.layout = QVBoxLayout()
         self.central_widget.setLayout(self.layout)
         
-        #label
+        #wid label
         self.image_label = QLabel("Nenhuma imagem selecionada")
         self.image_label.setAlignment(Qt.AlignCenter)
         self.layout.addWidget(self.image_label)
         
-        #anexo
+        #wid anexo
         self.attach_button = QPushButton("Anexar Imagem")
         self.attach_button.clicked.connect(self.abrir_img)
         self.layout.addWidget(self.attach_button)
         
-        #blur
+        #wid blur
         self.blur_button = QPushButton("Aplicar blur")
         self.blur_button.clicked.connect(self.blur_img)
         self.layout.addWidget(self.blur_button)
         
-        #sharpness
+        #wid sharpness
         self.sharpen_button = QPushButton("Aplicar sharpness")
         self.sharpen_button.clicked.connect(self.sharpness_img)
         self.layout.addWidget(self.sharpen_button)
 
-        #rotacao
+        #wid rotacao
         self.rotate_button = QPushButton("Rotacionar 45 garus")
         self.rotate_button.clicked.connect(self.aplicar_rotacao)
         self.layout.addWidget(self.rotate_button)
@@ -129,14 +128,11 @@ class MainWindow(QMainWindow):
         if file_path:
             self.image_path = file_path
             pixmap = QPixmap(file_path) #pixmap do qt pra manipular imagens
-            if not pixmap.isNull():
-                self.image_label.setPixmap(pixmap.scaled(
-                    self.image_label.width(),
-                    self.image_label.height(),
-                    Qt.KeepAspectRatio
-                ))
-            else:
-                self.image_label.setText("Erro ao carregar imagem")
+            self.image_label.setPixmap(pixmap.scaled(
+                self.image_label.width(),
+                self.image_label.height(),
+                Qt.KeepAspectRatio
+            ))
 
     def blur_img(self):
 
@@ -152,9 +148,7 @@ class MainWindow(QMainWindow):
     def sharpness_img(self):
         
         img_bgr = cv2.imread(self.image_path)
-        
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-        
         pixmap_sharp = sharpen_img_widget(img_rgb)
         
         self.mostrar_pixmap(pixmap_sharp, "Imagem com Sharpness")
@@ -163,7 +157,7 @@ class MainWindow(QMainWindow):
                 
         img_bgr = cv2.imread(self.image_path)
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-        pixmap_rotated = rotate_45_img_widget(img_rgb)
+        pixmap_rotated = rotacionar_45_img(img_rgb)
 
         self.mostrar_pixmap(pixmap_rotated, "Imagem Rotacionada")
 
